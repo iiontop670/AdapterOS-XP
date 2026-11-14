@@ -1,0 +1,36 @@
+
+name: Build AdapterOS XP ISO
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: debian:trixie
+
+    steps:
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y git ca-certificates live-build debootstrap squashfs-tools xorriso grub-pc-bin grub-efi-amd64-bin mtools dosfstools
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure ISO
+        run: bash scripts/configure-iso.sh
+
+      - name: Build ISO
+        run: bash scripts/build-iso.sh
+
+      - name: Upload ISO
+        uses: actions/upload-artifact@v4
+        with:
+          name: AdapterOS-XP-ISO
+          path: live-image-amd64.hybrid.iso
+          if-no-files-found: error
