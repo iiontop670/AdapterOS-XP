@@ -1,0 +1,51 @@
+# AdapterOS XP Phase 1 live environment — Debian 13/Trixie amd64
+# Plasma/KWin is the temporary, functional desktop infrastructure.
+# ADE will progressively replace the visible shell in later milestones.
+
+# Desktop and login
+sddm
+plasma-desktop
+plasma-workspace
+kwin-wayland
+systemsettings
+dolphin
+konsole
+ark
+kde-spectacle
+
+# Hardware and desktop integration
+network-manager
+network-manager-gnome
+pipewire-audio
+wireplumber
+bluez
+udisks2
+polkit-kde-agent-1
+xwayland
+
+# Browser and useful base utilities
+firefox-esr
+sudo
+nftables
+openssh-client
+curl
+wget
+vim-tiny
+less
+pciutils
+usbutils
+iproute2
+iputils-ping
+ca-certificates
+fonts-dejavu
+breeze
+breeze-icon-theme
+
+# Qt Quick runtime modules for ADE prototype
+qml6-module-qtquick
+qml6-module-qtquick-controls
+qml6-module-qtquick-layouts
+qml6-module-qtquick-window
+qml6-module-qtqml
+qml6-module-qtqml-models
+qml6-module-qtqml-workerscript
