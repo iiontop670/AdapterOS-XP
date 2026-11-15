@@ -24,6 +24,7 @@ jobs:
       image: debian:trixie
 
     steps:
+      # 1. Install build dependencies
       - name: Install build dependencies
         shell: bash
         run: |
@@ -45,46 +46,95 @@ jobs:
             syslinux-common \
             syslinux-utils
 
+      # 2. Download repository
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@v6
 
+      # 3. Check repository structure
+      - name: Check repository structure
+        shell: bash
+        run: |
+          echo "Checking AdapterOS XP repository..."
+
+          echo "Current directory:"
+          pwd
+
+          echo "Repository contents:"
+          ls -la
+
+          echo "Checking required files..."
+
+          REQUIRED_FILES=(
+            "scripts/configure-iso.sh"
+            "scripts/build-iso.sh"
+            "scripts/clean-iso.sh"
+            "config/package-lists/adapteros-xp.list.chroot"
+            "ade/CMakeLists.txt"
+            "ade/src/main.cpp"
+            "ade/qml/Main.qml"
+          )
+
+          for FILE in "${REQUIRED_FILES[@]}"; do
+            if [[ ! -f "$FILE" ]]; then
+              echo "ERROR: Missing file: $FILE"
+              exit 1
+            fi
+
+            echo "OK: $FILE"
+          done
+
+          echo "Repository structure looks good."
+
+      # 4. Make scripts executable
+      - name: Set script permissions
+        shell: bash
+        run: |
+          chmod +x scripts/configure-iso.sh
+          chmod +x scripts/build-iso.sh
+          chmod +x scripts/clean-iso.sh
+
+      # 5. Configure ISO
       - name: Configure AdapterOS XP
         shell: bash
         run: |
           bash scripts/configure-iso.sh
 
-      - name: Build ISO
+      # 6. Build ISO
+      - name: Build AdapterOS XP ISO
         shell: bash
         run: |
           set -o pipefail
           bash scripts/build-iso.sh 2>&1 | tee build.log
 
-      - name: Verify ISO
+      # 7. Verify ISO
+      - name: Verify generated ISO
         shell: bash
         run: |
           mapfile -t ISO_FILES < <(
             find . -maxdepth 1 -type f -name "*.iso" -print
           )
 
-          if [ "${#ISO_FILES[@]}" -eq 0 ]; then
-            echo "ERROR: No ISO file was generated."
+          if [[ "${#ISO_FILES[@]}" -eq 0 ]]; then
+            echo "ERROR: No ISO was generated."
             exit 1
           fi
 
-          echo "Successfully generated ISO file(s):"
+          echo "ISO generated successfully:"
           ls -lh "${ISO_FILES[@]}"
 
+      # 8. Upload ISO
       - name: Upload AdapterOS XP ISO
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v6
         with:
           name: AdapterOS-XP-0.1-amd64
           path: "*.iso"
           if-no-files-found: error
           retention-days: 14
 
+      # 9. Upload build log
       - name: Upload build log
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v6
         with:
           name: AdapterOS-XP-build-log
           path: build.log
