@@ -23,8 +23,32 @@ jobs:
     container:
       image: debian:trixie
 
+    defaults:
+      run:
+        working-directory: AdapterOS-XP-Phase1-Starter-v2
+
     steps:
-      # 1. Install build dependencies
+      # 1. Download the repository
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      # 2. Verify project folder
+      - name: Check project folder
+        working-directory: .
+        shell: bash
+        run: |
+          echo "Repository root:"
+          pwd
+          ls -la
+
+          if [ ! -d "AdapterOS-XP-Phase1-Starter-v2" ]; then
+            echo "ERROR: Project folder not found!"
+            exit 1
+          fi
+
+          echo "AdapterOS XP project folder found."
+
+      # 3. Install build dependencies
       - name: Install build dependencies
         shell: bash
         run: |
@@ -46,23 +70,11 @@ jobs:
             syslinux-common \
             syslinux-utils
 
-      # 2. Download repository
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      # 3. Check repository structure
+      # 4. Check required project files
       - name: Check repository structure
         shell: bash
         run: |
-          echo "Checking AdapterOS XP repository..."
-
-          echo "Current directory:"
-          pwd
-
-          echo "Repository contents:"
-          ls -la
-
-          echo "Checking required files..."
+          echo "Checking AdapterOS XP files..."
 
           REQUIRED_FILES=(
             "scripts/configure-iso.sh"
@@ -75,7 +87,7 @@ jobs:
           )
 
           for FILE in "${REQUIRED_FILES[@]}"; do
-            if [[ ! -f "$FILE" ]]; then
+            if [ ! -f "$FILE" ]; then
               echo "ERROR: Missing file: $FILE"
               exit 1
             fi
@@ -83,9 +95,9 @@ jobs:
             echo "OK: $FILE"
           done
 
-          echo "Repository structure looks good."
+          echo "All required files found."
 
-      # 4. Make scripts executable
+      # 5. Make scripts executable
       - name: Set script permissions
         shell: bash
         run: |
@@ -93,20 +105,20 @@ jobs:
           chmod +x scripts/build-iso.sh
           chmod +x scripts/clean-iso.sh
 
-      # 5. Configure ISO
+      # 6. Configure ISO
       - name: Configure AdapterOS XP
         shell: bash
         run: |
           bash scripts/configure-iso.sh
 
-      # 6. Build ISO
+      # 7. Build ISO
       - name: Build AdapterOS XP ISO
         shell: bash
         run: |
           set -o pipefail
           bash scripts/build-iso.sh 2>&1 | tee build.log
 
-      # 7. Verify ISO
+      # 8. Verify ISO
       - name: Verify generated ISO
         shell: bash
         run: |
@@ -114,29 +126,29 @@ jobs:
             find . -maxdepth 1 -type f -name "*.iso" -print
           )
 
-          if [[ "${#ISO_FILES[@]}" -eq 0 ]]; then
-            echo "ERROR: No ISO was generated."
+          if [ "${#ISO_FILES[@]}" -eq 0 ]; then
+            echo "ERROR: No ISO file was generated."
             exit 1
           fi
 
           echo "ISO generated successfully:"
           ls -lh "${ISO_FILES[@]}"
 
-      # 8. Upload ISO
+      # 9. Upload ISO
       - name: Upload AdapterOS XP ISO
         uses: actions/upload-artifact@v6
         with:
           name: AdapterOS-XP-0.1-amd64
-          path: "*.iso"
+          path: AdapterOS-XP-Phase1-Starter-v2/*.iso
           if-no-files-found: error
           retention-days: 14
 
-      # 9. Upload build log
+      # 10. Upload build log
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v6
         with:
           name: AdapterOS-XP-build-log
-          path: build.log
+          path: AdapterOS-XP-Phase1-Starter-v2/build.log
           if-no-files-found: ignore
           retention-days: 7
