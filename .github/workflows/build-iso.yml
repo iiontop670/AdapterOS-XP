@@ -10,25 +10,34 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container:
-      image: debian:trixie
 
     steps:
-      - name: Install build dependencies
-        run: |
-          apt-get update
-          apt-get install -y git ca-certificates live-build debootstrap squashfs-tools xorriso grub-pc-bin grub-efi-amd64-bin mtools dosfstools
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Configure ISO
+      - name: Install build dependencies
         run: |
-          bash AdapterOS-XP-Phase1-Starter-v2/AdapterOS-XP-Phase1/scripts/configure-iso.sh
+          sudo apt-get update
+          sudo apt-get install -y \
+            live-build \
+            debootstrap \
+            squashfs-tools \
+            xorriso \
+            grub-pc-bin \
+            grub-efi-amd64-bin \
+            mtools \
+            dosfstools
+
+      - name: Check available disk space
+        run: df -h /
+
+      - name: Configure ISO
+        working-directory: AdapterOS-XP-Phase1-Starter-v2/AdapterOS-XP-Phase1
+        run: sudo bash scripts/configure-iso.sh
 
       - name: Build ISO
-        run: |
-          bash AdapterOS-XP-Phase1-Starter-v2/AdapterOS-XP-Phase1/scripts/build-iso.sh
+        working-directory: AdapterOS-XP-Phase1-Starter-v2/AdapterOS-XP-Phase1
+        run: sudo bash scripts/build-iso.sh
 
       - name: Upload ISO
         uses: actions/upload-artifact@v4
@@ -36,3 +45,4 @@ jobs:
           name: AdapterOS-XP-ISO
           path: AdapterOS-XP-Phase1-Starter-v2/AdapterOS-XP-Phase1/live-image-amd64.hybrid.iso
           if-no-files-found: error
+          retention-days: 14
