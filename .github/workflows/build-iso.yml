@@ -23,14 +23,16 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Configure ISO
-        run: bash scripts/configure-iso.sh
+        run: |
+          bash AdapterOS-XP-Phase1-Starter-v2/AdapterOS-XP-Phase1/scripts/configure-iso.sh
 
       - name: Build ISO
-        run: bash scripts/build-iso.sh
+        run: |
+          bash AdapterOS-XP-Phase1-Starter-v2/AdapterOS-XP-Phase1/scripts/build-iso.sh
 
       - name: Upload ISO
         uses: actions/upload-artifact@v4
         with:
           name: AdapterOS-XP-ISO
-          path: live-image-amd64.hybrid.iso
+          path: AdapterOS-XP-Phase1-Starter-v2/AdapterOS-XP-Phase1/live-image-amd64.hybrid.iso
           if-no-files-found: error
