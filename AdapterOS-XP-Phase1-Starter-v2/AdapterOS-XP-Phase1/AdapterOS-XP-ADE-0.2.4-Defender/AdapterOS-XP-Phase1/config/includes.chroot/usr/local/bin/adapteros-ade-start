@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+
+# ADE 0.2 is a fullscreen desktop shell running above KWin.
+# Stop the Plasma panel/shell so it does not compete with the ADE taskbar.
+sleep 2
+if command -v pkill >/dev/null 2>&1; then
+    pkill -TERM -x plasmashell 2>/dev/null || true
+fi
+
+exec /usr/local/bin/adapter-desktop

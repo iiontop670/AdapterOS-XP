@@ -1,0 +1,89 @@
+# AdapterOS XP 0.2 live environment — Debian 13/Trixie amd64
+
+# Login and Wayland window management infrastructure.
+# ADE is the visible desktop shell; KWin remains the compositor/window manager.
+sddm
+plasma-desktop
+plasma-workspace
+kwin-wayland
+systemsettings
+xwayland
+
+# KDE applications retained as compatibility/fallback utilities.
+dolphin
+konsole
+ark
+kde-spectacle
+
+# Hardware, audio and desktop integration.
+network-manager
+network-manager-gnome
+pipewire-audio
+wireplumber
+bluez
+udisks2
+polkit-kde-agent-1
+
+# Wi-Fi firmware for common Intel, Realtek, Qualcomm/Atheros,
+# Broadcom/Cypress, MediaTek/Ralink, Marvell/NXP and USB Wi-Fi adapters.
+# The Linux Wi-Fi driver modules are supplied by the live-build kernel.
+firmware-iwlwifi
+firmware-realtek
+firmware-atheros
+firmware-brcm80211
+firmware-mediatek
+firmware-libertas
+firmware-ti-connectivity
+firmware-ath9k-htc
+firmware-carl9170
+firmware-zd1211
+
+# Wi-Fi authentication, regulatory database and diagnostic tools.
+wpasupplicant
+wireless-regdb
+iw
+rfkill
+
+# Browser and useful base utilities.
+firefox-esr
+sudo
+nftables
+openssh-client
+curl
+wget
+vim-tiny
+less
+pciutils
+usbutils
+iproute2
+iputils-ping
+ca-certificates
+fonts-dejavu
+fonts-noto-color-emoji
+breeze
+breeze-icon-theme
+procps
+
+# ADE runtime QML modules.
+qml6-module-qtquick
+qml6-module-qtquick-controls
+qml6-module-qtquick-layouts
+qml6-module-qtquick-window
+qml6-module-qtqml
+qml6-module-qtqml-models
+qml6-module-qtqml-workerscript
+qml6-module-qtmultimedia
+
+# Temporary build toolchain used by the live-build ADE compilation hook.
+# The hook removes these build-only packages after installing the ADE binary.
+build-essential
+cmake
+ninja-build
+qt6-base-dev
+qt6-declarative-dev
+
+# AdapterOS Defender 0.2.4: on-demand signature scanning and automatic DB updates.
+# Deliberately omit clamav-daemon/clamonacc to avoid a permanently resident scanner
+# on low-memory VMs; ClamAV runs only when the user starts a scan.
+clamav
+clamav-freshclam

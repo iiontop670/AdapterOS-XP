@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=AdapterOS XP Desktop
+Comment=Start the Adapter Desktop Environment
+Exec=/usr/local/bin/adapteros-ade-start
+TryExec=/usr/local/bin/adapteros-ade-start
+Terminal=false
+X-GNOME-Autostart-enabled=true
+X-KDE-autostart-phase=2

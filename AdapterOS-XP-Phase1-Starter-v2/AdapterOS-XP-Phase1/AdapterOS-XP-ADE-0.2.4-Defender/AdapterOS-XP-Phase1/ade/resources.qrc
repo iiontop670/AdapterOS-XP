@@ -1,0 +1,10 @@
+<RCC>
+  <qresource prefix="/">
+    <file alias="qml/Main.qml">qml/Main.qml</file>
+    <file alias="qml/SnakeGame.qml">qml/SnakeGame.qml</file>
+    <file alias="wallpapers/adapteros-luna-hills.jpg">wallpapers/adapteros-luna-hills.jpg</file>
+    <file alias="sounds/adapter-startup.wav">sounds/adapter-startup.wav</file>
+    <file alias="sounds/ui-click.wav">sounds/ui-click.wav</file>
+    <file alias="sounds/ui-error.wav">sounds/ui-error.wav</file>
+  </qresource>
+</RCC>

@@ -1,0 +1,44 @@
+#!/bin/sh
+set -eu
+
+SOURCE_DIR="/usr/src/adapteros/ade"
+BUILD_DIR="/tmp/adapteros-ade-build"
+
+if [ ! -f "$SOURCE_DIR/CMakeLists.txt" ]; then
+    echo "ERROR: ADE source tree is missing at $SOURCE_DIR" >&2
+    exit 1
+fi
+
+command -v cmake >/dev/null 2>&1 || {
+    echo "ERROR: CMake is not installed in the live chroot" >&2
+    exit 1
+}
+command -v ninja >/dev/null 2>&1 || {
+    echo "ERROR: Ninja is not installed in the live chroot" >&2
+    exit 1
+}
+
+printf '%s\n' "Building Adapter Desktop Environment 0.2.4..."
+cmake -S "$SOURCE_DIR" -B "$BUILD_DIR" -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local
+cmake --build "$BUILD_DIR" --parallel 2
+cmake --install "$BUILD_DIR"
+
+if [ ! -x /usr/local/bin/adapter-desktop ]; then
+    echo "ERROR: adapter-desktop was not installed" >&2
+    exit 1
+fi
+
+# Remove temporary build tools while leaving ADE's runtime libraries/modules.
+apt-get purge -y --auto-remove \
+    build-essential cmake ninja-build qt6-base-dev qt6-declarative-dev
+rm -rf "$BUILD_DIR" "$SOURCE_DIR"
+apt-get clean
+rm -rf /var/lib/apt/lists/*
+
+# Keep ClamAV signature definitions updated without running a resident scanner.
+# --root enables the unit symlink in the image while live-build is in a chroot.
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl --root=/ enable clamav-freshclam.service >/dev/null 2>&1 || true
+fi
+
+printf '%s\n' "Adapter Desktop Environment 0.2.4 built and installed."
