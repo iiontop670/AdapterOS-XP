@@ -3,46 +3,90 @@ name: Build AdapterOS XP ISO
 
 on:
   workflow_dispatch:
+
   push:
     branches:
       - main
 
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
 jobs:
-  build:
+  build-iso:
+    name: Build AdapterOS XP
     runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    container:
+      image: debian:trixie
 
+    steps:
       - name: Install build dependencies
+        shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
+          apt-get update
+
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            ca-certificates \
+            git \
             live-build \
             debootstrap \
             squashfs-tools \
             xorriso \
+            grub-common \
             grub-pc-bin \
             grub-efi-amd64-bin \
             mtools \
-            dosfstools
+            dosfstools \
+            isolinux \
+            syslinux-common \
+            syslinux-utils
 
-      - name: Check available disk space
-        run: df -h /
+      - name: Checkout repository
+        uses: actions/checkout@v7
 
-      - name: Configure ISO
-        working-directory: AdapterOS-XP-Phase1-Starter-v2/AdapterOS-XP-Phase1
-        run: sudo bash scripts/configure-iso.sh
+      - name: Configure AdapterOS XP
+        shell: bash
+        run: |
+          bash scripts/configure-iso.sh
 
       - name: Build ISO
-        working-directory: AdapterOS-XP-Phase1-Starter-v2/AdapterOS-XP-Phase1
-        run: sudo bash scripts/build-iso.sh
+        shell: bash
+        run: |
+          set -o pipefail
+          bash scripts/build-iso.sh 2>&1 | tee build.log
 
-      - name: Upload ISO
-        uses: actions/upload-artifact@v4
+      - name: Verify ISO
+        shell: bash
+        run: |
+          mapfile -t ISO_FILES < <(
+            find . -maxdepth 1 -type f -name "*.iso" -print
+          )
+
+          if [ "${#ISO_FILES[@]}" -eq 0 ]; then
+            echo "ERROR: No ISO file was generated."
+            exit 1
+          fi
+
+          echo "Successfully generated ISO file(s):"
+          ls -lh "${ISO_FILES[@]}"
+
+      - name: Upload AdapterOS XP ISO
+        uses: actions/upload-artifact@v7
         with:
-          name: AdapterOS-XP-ISO
-          path: AdapterOS-XP-Phase1-Starter-v2/AdapterOS-XP-Phase1/live-image-amd64.hybrid.iso
+          name: AdapterOS-XP-0.1-amd64
+          path: "*.iso"
           if-no-files-found: error
           retention-days: 14
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: AdapterOS-XP-build-log
+          path: build.log
+          if-no-files-found: ignore
+          retention-days: 7
