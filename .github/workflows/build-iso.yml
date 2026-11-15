@@ -20,7 +20,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      # 2. Install dependencies directly on the runner VM
+      # 2. Install build dependencies
       - name: Install build dependencies
         shell: bash
         run: |
@@ -50,29 +50,67 @@ jobs:
             syslinux-utils \
             apt-utils
 
-          # Download Debian 13's live-build package.
+          # Download Debian Trixie's live-build package.
           LIVE_BUILD_DEB="$RUNNER_TEMP/live-build.deb"
 
           curl -fL \
             "https://deb.debian.org/debian/pool/main/l/live-build/live-build_20250505+deb13u1_all.deb" \
             -o "$LIVE_BUILD_DEB"
 
-          # Verify the downloaded package.
+          # Verify live-build package.
           echo "58e09779881cbcc631c49ceb703413e0247a87db01823e597b2a1c40a2afd8f4  $LIVE_BUILD_DEB" \
             | sha256sum --check -
 
-          # Install Debian's live-build version.
           sudo dpkg -i "$LIVE_BUILD_DEB"
 
           echo "Installed live-build:"
           lb --version
 
-          echo "Checking Debian Trixie bootstrap support..."
-          test -f /usr/share/debootstrap/scripts/trixie
+      # 3. Install the official Debian archive keyring
+      - name: Install Debian Trixie archive keyring
+        shell: bash
+        run: |
+          set -euo pipefail
 
-          echo "Build dependencies installed."
+          KEYRING_DEB="$RUNNER_TEMP/debian-archive-keyring.deb"
+          KEYRING_DIR="$RUNNER_TEMP/debian-keyring-extracted"
 
-      # 3. Locate AdapterOS XP
+          echo "Downloading Debian archive keyring 2025.1..."
+
+          curl -fL \
+            "https://deb.debian.org/debian/pool/main/d/debian-archive-keyring/debian-archive-keyring_2025.1_all.deb" \
+            -o "$KEYRING_DEB"
+
+          # Verify against Debian's published SHA-256.
+          echo "9ea7778e443144ca490668737a8ab22dd3e748bb99e805e22ec055abeb3c7fac  $KEYRING_DEB" \
+            | sha256sum --check -
+
+          # Extract without installing Debian packages into Ubuntu.
+          mkdir -p "$KEYRING_DIR"
+
+          dpkg-deb -x "$KEYRING_DEB" "$KEYRING_DIR"
+
+          KEYRING_SOURCE="$KEYRING_DIR/usr/share/keyrings/debian-archive-keyring.gpg"
+
+          if [[ ! -s "$KEYRING_SOURCE" ]]; then
+            echo "ERROR: Debian archive keyring was not extracted."
+            exit 1
+          fi
+
+          # Install the keyring where debootstrap expects it.
+          sudo install -D -m 0644 \
+            "$KEYRING_SOURCE" \
+            /usr/share/keyrings/debian-archive-keyring.gpg
+
+          echo "Checking installed keyring..."
+
+          ls -lh /usr/share/keyrings/debian-archive-keyring.gpg
+
+          test -s /usr/share/keyrings/debian-archive-keyring.gpg
+
+          echo "Debian archive keyring installed successfully."
+
+      # 4. Locate AdapterOS XP
       - name: Locate AdapterOS XP project
         shell: bash
         run: |
@@ -90,7 +128,7 @@ jobs:
               -print -quit
           )"
 
-          # Search ZIP files if the project is not extracted.
+          # Search ZIP archives if necessary.
           if [[ -z "$SCRIPT_PATH" ]]; then
             echo "Searching ZIP archives..."
 
@@ -124,9 +162,7 @@ jobs:
 
           if [[ -z "$SCRIPT_PATH" ]]; then
             echo "ERROR: Cannot find scripts/configure-iso.sh"
-
             find "$SEARCH_ROOT" -maxdepth 6 -print
-
             exit 1
           fi
 
@@ -136,7 +172,7 @@ jobs:
 
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
-      # 4. Check project files
+      # 5. Check project files
       - name: Check AdapterOS XP files
         shell: bash
         run: |
@@ -167,7 +203,7 @@ jobs:
 
           echo "All required files found."
 
-      # 5. Set script permissions
+      # 6. Set script permissions
       - name: Set script permissions
         shell: bash
         run: |
@@ -177,7 +213,7 @@ jobs:
           chmod +x scripts/build-iso.sh
           chmod +x scripts/clean-iso.sh
 
-      # 6. Configure ISO
+      # 7. Configure ISO
       - name: Configure AdapterOS XP
         shell: bash
         run: |
@@ -187,7 +223,7 @@ jobs:
 
           bash scripts/configure-iso.sh
 
-      # 7. Build ISO directly on the VM
+      # 8. Build ISO
       - name: Build AdapterOS XP ISO
         shell: bash
         run: |
@@ -195,8 +231,11 @@ jobs:
 
           cd "$PROJECT_DIR"
 
-          echo "Available disk space:"
+          echo "Checking available disk space:"
           df -h .
+
+          echo "Checking Debian keyring:"
+          test -s /usr/share/keyrings/debian-archive-keyring.gpg
 
           echo "Starting AdapterOS XP ISO build..."
 
@@ -204,7 +243,7 @@ jobs:
           bash scripts/build-iso.sh 2>&1 \
             | tee "$GITHUB_WORKSPACE/build.log"
 
-      # 8. Verify ISO
+      # 9. Verify ISO
       - name: Verify generated ISO
         shell: bash
         run: |
@@ -226,7 +265,7 @@ jobs:
           fi
 
           for ISO in "${ISO_FILES[@]}"; do
-            echo "Found: $ISO"
+            echo "Found ISO: $ISO"
 
             sudo cp "$ISO" "$GITHUB_WORKSPACE/dist/"
             sudo chown "$(id -u):$(id -g)" \
@@ -236,7 +275,7 @@ jobs:
           echo "Generated ISO files:"
           ls -lh "$GITHUB_WORKSPACE/dist/"
 
-      # 9. Upload ISO
+      # 10. Upload ISO
       - name: Upload AdapterOS XP ISO
         uses: actions/upload-artifact@v7
         with:
@@ -245,7 +284,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      # 10. Upload build log
+      # 11. Upload build log
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v7
