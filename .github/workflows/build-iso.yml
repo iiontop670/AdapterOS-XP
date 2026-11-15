@@ -6,9 +6,6 @@ on:
   push:
     branches:
       - main
-  pull_request:
-    branches:
-      - main
 
 permissions:
   contents: read
@@ -16,28 +13,31 @@ permissions:
 jobs:
   build-iso:
     name: Build AdapterOS XP
-    runs-on: ubuntu-latest
-
-    container:
-      image: debian:trixie
+    runs-on: ubuntu-24.04
 
     steps:
-      # 1. Download the repository
+      # 1. Checkout repository
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
-      # 2. Install build dependencies
+      # 2. Install dependencies directly on the runner VM
       - name: Install build dependencies
         shell: bash
         run: |
-          apt-get update
+          set -euo pipefail
 
-          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+          sudo apt-get update
+
+          sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y \
             ca-certificates \
-            git \
+            curl \
             unzip \
-            live-build \
+            cpio \
             debootstrap \
+            gettext-base \
+            gawk \
+            file \
+            rsync \
             squashfs-tools \
             xorriso \
             grub-common \
@@ -47,19 +47,41 @@ jobs:
             dosfstools \
             isolinux \
             syslinux-common \
-            syslinux-utils
+            syslinux-utils \
+            apt-utils
 
-      # 3. Automatically locate the project
+          # Download Debian 13's live-build package.
+          LIVE_BUILD_DEB="$RUNNER_TEMP/live-build.deb"
+
+          curl -fL \
+            "https://deb.debian.org/debian/pool/main/l/live-build/live-build_20250505+deb13u1_all.deb" \
+            -o "$LIVE_BUILD_DEB"
+
+          # Verify the downloaded package.
+          echo "58e09779881cbcc631c49ceb703413e0247a87db01823e597b2a1c40a2afd8f4  $LIVE_BUILD_DEB" \
+            | sha256sum --check -
+
+          # Install Debian's live-build version.
+          sudo dpkg -i "$LIVE_BUILD_DEB"
+
+          echo "Installed live-build:"
+          lb --version
+
+          echo "Checking Debian Trixie bootstrap support..."
+          test -f /usr/share/debootstrap/scripts/trixie
+
+          echo "Build dependencies installed."
+
+      # 3. Locate AdapterOS XP
       - name: Locate AdapterOS XP project
         shell: bash
         run: |
           set -euo pipefail
 
-          echo "Searching repository for AdapterOS XP..."
-
           SEARCH_ROOT="$GITHUB_WORKSPACE"
 
-          # First, look for the configuration script directly.
+          echo "Searching for AdapterOS XP..."
+
           SCRIPT_PATH="$(
             find "$SEARCH_ROOT" \
               -type f \
@@ -68,19 +90,16 @@ jobs:
               -print -quit
           )"
 
-          # If the script is not found, look inside ZIP archives.
+          # Search ZIP files if the project is not extracted.
           if [[ -z "$SCRIPT_PATH" ]]; then
-            echo "Script not found in extracted folders."
             echo "Searching ZIP archives..."
 
             mkdir -p "$RUNNER_TEMP/adapteros-extracted"
 
             while IFS= read -r -d '' ZIP_FILE; do
-              echo "Extracting: $ZIP_FILE"
-
               DEST="$RUNNER_TEMP/adapteros-extracted/$(basename "$ZIP_FILE" .zip)"
-              mkdir -p "$DEST"
 
+              mkdir -p "$DEST"
               unzip -oq "$ZIP_FILE" -d "$DEST"
 
               SCRIPT_PATH="$(
@@ -93,32 +112,31 @@ jobs:
               if [[ -n "$SCRIPT_PATH" ]]; then
                 break
               fi
+
             done < <(
               find "$SEARCH_ROOT" \
-                -maxdepth 4 \
+                -maxdepth 5 \
                 -type f \
-                -name '*.zip' \
+                -iname '*.zip' \
                 -print0
             )
           fi
 
-          # Stop if the project could not be found.
           if [[ -z "$SCRIPT_PATH" ]]; then
-            echo "ERROR: Could not find scripts/configure-iso.sh."
-            echo "Repository directory structure:"
+            echo "ERROR: Cannot find scripts/configure-iso.sh"
+
             find "$SEARCH_ROOT" -maxdepth 6 -print
+
             exit 1
           fi
 
-          # Determine the actual project root.
           PROJECT_DIR="$(dirname "$(dirname "$SCRIPT_PATH")")"
 
-          echo "Found AdapterOS XP!"
-          echo "Project directory: $PROJECT_DIR"
+          echo "Found project: $PROJECT_DIR"
 
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
-      # 4. Verify project files
+      # 4. Check project files
       - name: Check AdapterOS XP files
         shell: bash
         run: |
@@ -144,12 +162,12 @@ jobs:
               exit 1
             fi
 
-            echo "FOUND: $FILE"
+            echo "OK: $FILE"
           done
 
-          echo "All required files found!"
+          echo "All required files found."
 
-      # 5. Set permissions
+      # 5. Set script permissions
       - name: Set script permissions
         shell: bash
         run: |
@@ -163,20 +181,30 @@ jobs:
       - name: Configure AdapterOS XP
         shell: bash
         run: |
+          set -euo pipefail
+
           cd "$PROJECT_DIR"
+
           bash scripts/configure-iso.sh
 
-      # 7. Build ISO
-      - name: Build AdapterOS XP
+      # 7. Build ISO directly on the VM
+      - name: Build AdapterOS XP ISO
         shell: bash
         run: |
-          set -o pipefail
+          set -euo pipefail
 
           cd "$PROJECT_DIR"
 
-          bash scripts/build-iso.sh 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
+          echo "Available disk space:"
+          df -h .
 
-      # 8. Verify and collect ISO
+          echo "Starting AdapterOS XP ISO build..."
+
+          set -o pipefail
+          bash scripts/build-iso.sh 2>&1 \
+            | tee "$GITHUB_WORKSPACE/build.log"
+
+      # 8. Verify ISO
       - name: Verify generated ISO
         shell: bash
         run: |
@@ -185,7 +213,7 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/dist"
 
           mapfile -d '' ISO_FILES < <(
-            find "$PROJECT_DIR" \
+            sudo find "$PROJECT_DIR" \
               -maxdepth 4 \
               -type f \
               -iname '*.iso' \
@@ -198,8 +226,11 @@ jobs:
           fi
 
           for ISO in "${ISO_FILES[@]}"; do
-            echo "Found ISO: $ISO"
-            cp "$ISO" "$GITHUB_WORKSPACE/dist/"
+            echo "Found: $ISO"
+
+            sudo cp "$ISO" "$GITHUB_WORKSPACE/dist/"
+            sudo chown "$(id -u):$(id -g)" \
+              "$GITHUB_WORKSPACE/dist/$(basename "$ISO")"
           done
 
           echo "Generated ISO files:"
@@ -207,7 +238,7 @@ jobs:
 
       # 9. Upload ISO
       - name: Upload AdapterOS XP ISO
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: AdapterOS-XP-0.1-amd64
           path: dist/*.iso
@@ -217,7 +248,7 @@ jobs:
       # 10. Upload build log
       - name: Upload build log
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: AdapterOS-XP-build-log
           path: build.log
